@@ -1,0 +1,2 @@
+This port layer is already being used to run FTP and HTTP examples,
+and will be released soon.
