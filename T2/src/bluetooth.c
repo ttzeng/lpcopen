@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "board.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -5,6 +6,7 @@
 #include "common.h"
 #include "vehicle.h"
 #include "compass.h"
+#include "ultrasonic.h"
 #include "bluebooth.h"
 
 #define BT_UART					LPC_UART1
@@ -27,6 +29,22 @@ void UART1_IRQHandler(void)
 		xQueueSendFromISR(xInQ, &ch, NULL);
 }
 
+static void ProcessCmdQueryHeading()
+{
+	char buf[9];
+	sprintf(buf, "h=%5.1f\r", CompassGetHeading());
+	Chip_UART_SendBlocking(BT_UART, buf, strlen(buf));
+}
+
+static void ProcessCmdProbeObstacle()
+{
+	char buf[9];
+	sprintf(buf, "d=%5.1f\r", UltrasonicPing());
+	Chip_UART_SendBlocking(BT_UART, buf, strlen(buf));
+}
+
+#define CMD_QueryHeading		0x5E		// character '^'
+#define CMD_ProbeObstacle		0x7E		// character '~'
 #define CMD_SetPower			0xF0
 #define CMD_PowerLevelMask		0x0F
 #define CMD_PowerTuning			0xC0
@@ -41,18 +59,26 @@ static void vTaskBTControl(void *pvParameters)
 		__WFI();
 		if (xQueueReceive(xInQ, &ch, portMAX_DELAY) != pdTRUE)
 			continue;
-		if ((ch & ~CMD_PowerLevelMask) == CMD_SetPower) {
-			VehicleSetHorsePower((float)(ch & CMD_PowerLevelMask) / CMD_PowerLevelMask);
-		} else if ((ch & ~CMD_TuningLevelMask) == CMD_PowerTuning) {
-			VehicleSetSteeringWheel((ch & CMD_TuningLevelMask) - 16);
-		} else
-			switch (ch) {
-			case CMD_CalibrationStart:
-				CompassCalibrate(false);
-				break;
-			case CMD_CalibrationFinish:
-				CompassCalibrate(true);
+		switch (ch) {
+		case CMD_QueryHeading:
+			ProcessCmdQueryHeading();
+			break;
+		case CMD_ProbeObstacle:
+			ProcessCmdProbeObstacle();
+			break;
+		case CMD_CalibrationStart:
+			CompassCalibrate(false);
+			break;
+		case CMD_CalibrationFinish:
+			CompassCalibrate(true);
+			break;
+		default:
+			if ((ch & ~CMD_PowerLevelMask) == CMD_SetPower) {
+				VehicleSetHorsePower((float)(ch & CMD_PowerLevelMask) / CMD_PowerLevelMask);
+			} else if ((ch & ~CMD_TuningLevelMask) == CMD_PowerTuning) {
+				VehicleSetSteeringWheel((ch & CMD_TuningLevelMask) - 16);
 			}
+		}
 	}
 }
 
@@ -74,7 +100,7 @@ void BluetoothInit(void)
 
 		/* Bluetooth control thread */
 		xTaskCreate(vTaskBTControl, (signed char*) "vTaskBTControl",
-					configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
+					256, NULL, (tskIDLE_PRIORITY + 1UL),
 					(xTaskHandle *) NULL);
 	}
 }
