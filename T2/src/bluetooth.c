@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "board.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -8,6 +9,7 @@
 #include "compass.h"
 #include "ultrasonic.h"
 #include "bluebooth.h"
+#include "motor.h"
 
 #define BT_UART					LPC_UART1
 #define BT_IRQ					UART1_IRQn
@@ -49,8 +51,14 @@ static void ProcessCmdProbeObstacle()
 #define CMD_PowerLevelMask		0x0F
 #define CMD_PowerTuning			0xC0
 #define CMD_TuningLevelMask		0x1F
-#define CMD_CalibrationStart	0xA0
-#define CMD_CalibrationFinish	0xA1
+#define CMD_MotorControl		0x80		// 10------
+#define CMD_MotorCtlBitRight	0x20		// --R-----
+#define CMD_MotorCtlBitLeft		0x10		// ---L----
+#define CMD_MotorCtlBitReverse	0x08		// ----r---
+#define CMD_MotorCtlLevelMask	0x07		// -----lvl
+#define CMD_MotorCtlBits		0x3F
+#define CMD_CalibrationStart	0x80		// 1000---- : special commands
+#define CMD_CalibrationFinish	0x81
 
 static void vTaskBTControl(void *pvParameters)
 {
@@ -77,6 +85,11 @@ static void vTaskBTControl(void *pvParameters)
 				VehicleSetHorsePower((float)(ch & CMD_PowerLevelMask) / CMD_PowerLevelMask);
 			} else if ((ch & ~CMD_TuningLevelMask) == CMD_PowerTuning) {
 				VehicleSetSteeringWheel((ch & CMD_TuningLevelMask) - 16);
+			} else if ((ch & ~CMD_MotorCtlBits) == CMD_MotorControl) {
+				int32_t duty = MAX_PWM_CYCLE * (ch & CMD_MotorCtlLevelMask) / CMD_MotorCtlLevelMask;
+				if (ch & CMD_MotorCtlBitReverse) duty = 0 - duty;
+				if (ch & CMD_MotorCtlBitRight)   MotorRun(MOTOR_RIGHT, duty);
+				if (ch & CMD_MotorCtlBitLeft)    MotorRun(MOTOR_LEFT, duty);
 			}
 		}
 	}
