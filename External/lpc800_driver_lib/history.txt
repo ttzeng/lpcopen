@@ -1,0 +1,17 @@
+History of updates to lpc800_driver_lib
+=======================================
+
+18 December 2012
+----------------
+Fixed case issue with LPC8xx.h includes in some files
+
+20 November 2012
+----------------
+Updated as per NXP's "LPC800 LPCXpresso Examples V1.0.1" (removal of
+IO and SCT headers and source files, updated NMI source file, new
+type.h header).
+
+15 November 2012
+---------------
+As per NXP's "LPC800 LPCXpresso Examples V1".
+

@@ -1,0 +1,21 @@
+History of updates to CMSIS_CORE_LPC8xx
+=======================================
+
+18 July 2013
+------------
+Updated with ARM Cortex-M0+ CMSIS files as supplied in ARM's
+CMSIS 3.20 March 2013 release.
+
+18 March 2013
+-------------
+Defines in system_LPC8xx.c changed so that clock setup is
+done based on IRC rather than XTAL, so as to function with
+LPC800-MAX board as well as LPCXpresso812. SystemCoreClock 
+thus now defaults to 12MHz.
+
+7 November 2012
+---------------
+CMSIS library project using ARM Cortex-M0+ CMSIS files as
+supplied in ARM's CMSIS 3.01 March 2012 release, together
+with device specific files.
+
