@@ -1,0 +1,19 @@
+Purpose:
+Simple blinky program using the Multi-Rate Timer (MRT) for LPC8xx
+Also, switch matrix is used to configure the CLKOUT function 
+
+Running mode:
+* Compile, Flash the program and reset.
+* Default project target set to Blinky_Release (exectuing from flash)
+* Can the run project from RAM by setting project target to Blinky_Debug
+
+Note:
+Tested on LPC800 LPCXpresso Board
+LPC800 running at 24 MHz
+
+Output:
+LEDs connected to port pins PIO0_7, PIO0_16, PI0_17 are toggled
+Multi-Rate Timer (MRT) is configured to provide a delay for toggling acitivity
+Clkout function is assigned via switch matrix to PIO0_12 to see main clock frequency (24 MHz)
+	
+
