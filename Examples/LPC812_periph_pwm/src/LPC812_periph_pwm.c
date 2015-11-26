@@ -94,7 +94,7 @@ static inline void Clock_Setup()
 	LPC_SYSCON->MAINCLKUEN = 0;
 	LPC_SYSCON->MAINCLKUEN = 1;
 	//   Select the divider value for the system clock to core, memories, and peripherals
-	LPC_SYSCON->SYSAHBCLKDIV = 1;
+	LPC_SYSCON->SYSAHBCLKDIV = 2;
 
 	// Disable the BYPASS bit and select the oscillator frequency range in SYSOSCCTRL register
 	LPC_SYSCON->SYSOSCCTRL = 0;
