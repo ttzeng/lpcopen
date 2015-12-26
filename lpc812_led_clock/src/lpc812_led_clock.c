@@ -84,19 +84,21 @@ static volatile uint8_t hour = 12, min = 0, sec = 0;
 
 volatile uint16_t gu16LedScratchPad;
 
-static uint8_t bin2bcd(uint8_t v, uint8_t leading_space)
+static uint8_t bin2bcd(uint8_t v)
 {
-	return ((leading_space && v<10)? 0xf0:(v/10)<<4)|(v%10);
+	return ((v/10)<<4)|(v%10);
 }
 
 static void display_update()
 {
+	uint8_t v;
 	switch (disp_mode) {
 	case DISP_TIME:
-		gu16LedScratchPad = (((uint16_t)bin2bcd(hour,1)) << 8) | (bin2bcd(min,0));
+		if ((v = bin2bcd(hour)) < 0x10) v |= 0xf0;	// mask the leading zero
+		gu16LedScratchPad = ((uint16_t)v << 8) | (bin2bcd(min));
 		break;
 	case DISP_SEC:
-		gu16LedScratchPad = (0xff << 8) | (bin2bcd(sec,0));
+		gu16LedScratchPad = (0xff << 8) | (bin2bcd(sec));
 	}
 }
 
