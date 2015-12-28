@@ -253,13 +253,14 @@ static void vDHTSensorTask (void *_unused)
 	LPC_SYSCON->PRESETCTRL |=  (1 << 7);
 	LPC_MRT->Channel[0].CTRL = MRT_ONE_SHOT_INT;
 
+	/* do not send instructions within 1S after power on to pass the unstable state */
 	while (1) {
-		uint32_t refresh_time = 5;
+		static uint8_t refresh_time = 5;
+		vTaskDelay(configTICK_RATE_HZ * refresh_time);
 		if (dht11_read(PORT0, GPIO_DHTSENSOR, data, sizeof(data)) == DHT_SUCCESS) {
 			humidity = data[0], temperature = data[2];
 			refresh_time = 60;
-		}
-		vTaskDelay(configTICK_RATE_HZ * refresh_time);
+		} else refresh_time = 5;
 	}
 }
 
