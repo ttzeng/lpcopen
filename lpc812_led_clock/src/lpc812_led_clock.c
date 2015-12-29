@@ -163,22 +163,40 @@ static void vClockTask (void *_unused)
 /* User Input thread */
 static void vUserInputTask (void *_unused)
 {
-	extern volatile uint32_t flex_int_falling_edge_counter[];
-	uint32_t last_cnt = flex_int_falling_edge_counter[CHANNEL0];
 	GPIOSetDir(PORT0, GPIO_BUTTON, INPUT);
-	GPIOSetPinInterrupt(CHANNEL0, PORT0, GPIO_BUTTON, 0, 0);
+
+	/* Software debouncer by Jack Ganssle (http://www.ganssle.com/debouncing-pt2.htm) */
+	uint8_t state = 0;
 	while (1) {
-		do __WFI(); while (last_cnt == flex_int_falling_edge_counter[CHANNEL0]);
-		last_cnt = flex_int_falling_edge_counter[CHANNEL0];
-		if (++disp_mode >= MAX_DISP) disp_mode = DISP_TIME;
-		uint32_t hold_cnt;
-		for (hold_cnt = 0; !GPIOGetPinValue(PORT0, GPIO_BUTTON); hold_cnt++) {
-			vTaskDelay(configTICK_RATE_HZ / 2);
-			if (hold_cnt > 6) {
-				disp_mode = DISP_TIME;
-				advance_time_by_min(hold_cnt / 10 + 1);
-				display_update();
+		vTaskDelay(configTICK_RATE_HZ / 100);
+		state = (state << 1) | GPIOGetPinValue(PORT0, GPIO_BUTTON) | 0xe0;
+		if (state == 0xf0) {	/* debounced */
+			#define HZ_LONG_PRESS_CHECK     3
+			#define TIME_LONG_PRESS         3
+			#define LONG_PRESS_THRESHOLD	(TIME_LONG_PRESS * HZ_LONG_PRESS_CHECK)
+			enum {
+				EDIT_HOUR,
+				EDIT_MIN,
+			};
+			static uint8_t edit_mode = EDIT_HOUR;
+			uint32_t hold_cnt;
+			for (hold_cnt = 0; disp_mode == DISP_TIME && !GPIOGetPinValue(PORT0, GPIO_BUTTON); hold_cnt++) {
+				vTaskDelay(configTICK_RATE_HZ / HZ_LONG_PRESS_CHECK);
+				if (hold_cnt >= LONG_PRESS_THRESHOLD) {
+					switch (edit_mode) {
+					case EDIT_HOUR:
+						if (++hour >= 24) hour = 0;
+						break;
+					case EDIT_MIN:
+						if (++min >= 60) min = 0;
+					}
+					display_update();
+				}
 			}
+			if (hold_cnt >= LONG_PRESS_THRESHOLD) {
+				edit_mode = (edit_mode == EDIT_HOUR)? EDIT_MIN : EDIT_HOUR;
+			} else if (++disp_mode >= MAX_DISP)
+				disp_mode = DISP_TIME;
 		}
 	}
 }
