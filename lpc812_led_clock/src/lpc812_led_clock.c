@@ -181,7 +181,6 @@ static void vUserInputTask (void *_unused)
 			static uint8_t edit_mode = EDIT_HOUR;
 			uint32_t hold_cnt;
 			for (hold_cnt = 0; disp_mode == DISP_TIME && !GPIOGetPinValue(PORT0, GPIO_BUTTON); hold_cnt++) {
-				vTaskDelay(configTICK_RATE_HZ / HZ_LONG_PRESS_CHECK);
 				if (hold_cnt >= LONG_PRESS_THRESHOLD) {
 					switch (edit_mode) {
 					case EDIT_HOUR:
@@ -192,6 +191,7 @@ static void vUserInputTask (void *_unused)
 					}
 					display_update();
 				}
+				vTaskDelay(configTICK_RATE_HZ / HZ_LONG_PRESS_CHECK);
 			}
 			if (hold_cnt >= LONG_PRESS_THRESHOLD) {
 				edit_mode = (edit_mode == EDIT_HOUR)? EDIT_MIN : EDIT_HOUR;
