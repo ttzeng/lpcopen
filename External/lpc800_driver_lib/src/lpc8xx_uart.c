@@ -273,7 +273,7 @@ void FlowControlInit( LPC_USART_TypeDef *UARTx )
 *****************************************************************************/
 void UARTClock_Init( LPC_USART_TypeDef *UARTx )
 {
-  LPC_SYSCON->UARTCLKDIV = 1;     /* divided by 1 */
+  LPC_SYSCON->UARTCLKDIV = LPC_SYSCON->SYSAHBCLKDIV;
 	
 	if (UARTx == LPC_USART0)
 	{
@@ -323,7 +323,7 @@ void UARTInit(LPC_USART_TypeDef *UARTx, uint32_t baudrate)
 	
 	UARTClock_Init( UARTx );
 	
-	UARTSysClk = SystemCoreClock/LPC_SYSCON->UARTCLKDIV;
+	UARTSysClk = SystemCoreClock;
 	
   UARTx->CFG = DATA_LENG_8|PARITY_NONE|STOP_BIT_1; /* 8 bits, no Parity, 1 Stop bit */
 //  UARTx->CFG = DATA_LENG_7|PARITY_NONE|STOP_BIT_1; /* 7 bits, no Parity, 1 Stop bit */
@@ -498,7 +498,7 @@ void USARTInit(LPC_USART_TypeDef *UARTx, uint32_t baudrate, uint32_t mode)
 //  UARTx->CFG = DATA_LENG_8|PARITY_EVEN|STOP_BIT_1; /* 8 bits, even Parity, 1 Stop bit */
 //  UARTx->CFG = DATA_LENG_8|PARITY_ODD|STOP_BIT_1; /* 8 bits, odd Parity, 1 Stop bit */
 
-  UARTx->BRG = (SystemCoreClock/LPC_SYSCON->UARTCLKDIV)/baudrate-1;	/*baud rate */
+  UARTx->BRG = (SystemCoreClock)/baudrate-1;	/*baud rate */
   UARTx->STAT = CTS_DELTA | DELTA_RXBRK;		/* Clear all status bits. */		
 
   UARTx->CFG |= SYNC_EN;
