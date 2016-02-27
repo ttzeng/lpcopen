@@ -24,3 +24,6 @@
 # Mac
 .DS_Store
 
+# Arduino libraries
+Arduino/libraries
+
