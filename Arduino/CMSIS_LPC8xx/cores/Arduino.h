@@ -35,6 +35,7 @@ extern "C"{
 #include "LPC8xx.h"
 #include "lpc8xx_gpio.h"
 #include "lpc8xx_uart.h"
+#include "lpc8xx_romapi.h"
 #endif
 
 #define HIGH 0x1
