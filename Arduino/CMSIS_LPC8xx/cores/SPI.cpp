@@ -28,12 +28,10 @@ void SPIClass::begin()
 	LPC_SYSCON->PRESETCTRL &= ~(1 << 0);
 	LPC_SYSCON->PRESETCTRL |=  (1 << 0);
 	/* Configure pins used by SPI0 */
-	LPC_SYSCON->SYSAHBCLKCTRL |= (1 << 7);
-	LPC_SWM->PINASSIGN3 = (LPC_SWM->PINASSIGN3 & 0x00ffffff) | ((uint32_t)SPI0_SCK << 24);
-	LPC_SWM->PINASSIGN4 = (LPC_SWM->PINASSIGN4 & 0xff000000) | ((uint32_t)SPI0_SSEL << 16)
-	                                                         | ((uint32_t)SPI0_MISO <<  8)
-	                                                         | ((uint32_t)SPI0_MOSI);
-	LPC_SYSCON->SYSAHBCLKCTRL &= ~(1 << 7);
+	Board::assignMovablePin(3, 24, SPI0_SCK);
+	Board::assignMovablePin(4,  0, SPI0_MOSI);
+	Board::assignMovablePin(4,  8, SPI0_MISO);
+	Board::assignMovablePin(4, 16, SPI0_SSEL);
 	/* Initialize the SPI bus */
 	LPC_SPI0->CFG = CFG_MASTER
 	                | ((spiBitOrder != MSBFIRST)? CFG_LSBF : 0)

@@ -78,3 +78,10 @@ void Board::init()
 	setupSysTick();
 	GPIOInit();
 }
+
+void Board::assignMovablePin(byte reg, byte ofs, byte pin)
+{
+	LPC_SYSCON->SYSAHBCLKCTRL |= (1 << 7);
+	LPC_SWM->PINASSIGN[reg] = (LPC_SWM->PINASSIGN[reg] & ~(0x000000ffUL << ofs)) | ((uint32_t)pin << ofs);
+	LPC_SYSCON->SYSAHBCLKCTRL &= ~(1 << 7);
+}

@@ -15,13 +15,13 @@ uint8_t TwoWire::txBufferIndex;
 TwoWire::TwoWire()
 {
 	/* Enable the two pins required for the SCL and SDA outputs */
-	LPC_SYSCON->SYSAHBCLKCTRL |= (1 << 7) | (1 << 18);
-	LPC_SWM->PINASSIGN7 = (LPC_SWM->PINASSIGN7 & 0x00ffffff) | ((uint32_t)SWM_I2C_SDA << 24);
-	LPC_SWM->PINASSIGN8 = (LPC_SWM->PINASSIGN8 & 0xffffff00) | (SWM_I2C_SCL);
+	LPC_SYSCON->SYSAHBCLKCTRL |= (1 << 18);
+	Board::assignMovablePin(7, 24, SWM_I2C_SDA);
+	Board::assignMovablePin(8,  0, SWM_I2C_SCL);
 	/* Enable Fast Mode Plus for I2C pins */
 	LPC_IOCON->PIO0_10 = (LPC_IOCON->PIO0_10 & ~0x300) | (2 << 8);
 	LPC_IOCON->PIO0_11 = (LPC_IOCON->PIO0_11 & ~0x300) | (2 << 8);
-	LPC_SYSCON->SYSAHBCLKCTRL &= ~((1 << 7) | (1 << 18));
+	LPC_SYSCON->SYSAHBCLKCTRL &= ~(1 << 18);
 }
 
 void TwoWire::begin()
