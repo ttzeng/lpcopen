@@ -27,3 +27,15 @@ void delay(unsigned long ms)
 		} while (_ulTickCount - start < ms);
 	}
 }
+
+unsigned long micros(void)
+{
+	extern volatile uint32_t mrt_counter;
+	return (mrt_counter * 1000000UL) + ((SystemCoreClock - LPC_MRT->Channel[0].TIMER) >> 4);
+}
+
+void delayMicroseconds(unsigned int us)
+{
+	unsigned long t = micros() + us;
+	while (micros() < t);
+}

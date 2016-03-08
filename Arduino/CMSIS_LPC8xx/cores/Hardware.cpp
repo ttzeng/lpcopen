@@ -47,7 +47,7 @@ void Board::setupSysClock()
 	LPC_SYSCON->SYSPLLCLKUEN = 0;
 	LPC_SYSCON->SYSPLLCLKUEN = 1;
 	//   Configure the PLL M and N dividers
-	LPC_SYSCON->SYSPLLCTRL = (4 | (1 << 5));
+	LPC_SYSCON->SYSPLLCTRL = (3 | (1 << 5));
 	//   Wait for the PLL to lock by monitoring the PLL lock status
 	while (!(LPC_SYSCON->SYSPLLSTAT & 1));
 
@@ -58,7 +58,7 @@ void Board::setupSysClock()
 	LPC_SYSCON->MAINCLKUEN = 0;
 	LPC_SYSCON->MAINCLKUEN = 1;
 	//   Select the divider value for the system clock to core, memories, and peripherals
-	LPC_SYSCON->SYSAHBCLKDIV = 2;
+	LPC_SYSCON->SYSAHBCLKDIV = 3;
 
 	// Disable the BYPASS bit and select the oscillator frequency range in SYSOSCCTRL register
 	LPC_SYSCON->SYSOSCCTRL = 0;
@@ -76,6 +76,7 @@ void Board::init()
 	initIOCON();
 	setupSysClock();
 	setupSysTick();
+	init_mrt(SystemCoreClock);
 	GPIOInit();
 }
 
