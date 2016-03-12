@@ -44,6 +44,6 @@ int analogRead(uint8_t pin)
 			if (LPC_CMP->CTRL & COMPSTAT)
 				break;
 		}
-		return map(step, 0, ACOMP_VOLTAGE_LADDER_STEPS, 0, 1023);
+		return map(step, 0, ACOMP_VOLTAGE_LADDER_STEPS - 1, 0, 1023);
 	}
 }
