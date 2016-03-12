@@ -39,3 +39,11 @@ void delayMicroseconds(unsigned int us)
 	unsigned long t = micros() + us;
 	while (micros() < t);
 }
+
+void delayNonoseconds(unsigned int ns)
+{
+	uint32_t ivalue;
+	LPC_MRT->Channel[1].CTRL   = MRT_ONE_SHOT_INT;
+	LPC_MRT->Channel[1].INTVAL = ((SystemCoreClock / 1000000) * ns / 1000) | (1 << 31);
+	while ((ivalue = LPC_MRT->Channel[1].TIMER & 0x7fffffff) != 0x7fffffff);
+}
