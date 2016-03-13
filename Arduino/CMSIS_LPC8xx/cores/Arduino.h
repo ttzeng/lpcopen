@@ -133,6 +133,7 @@ void loop(void);
 #include "Hardware.h"
 #include "Uart.h"
 #include "SCTimer.h"
+#include "Tone.h"
 
 // WMath prototypes
 long random(long);

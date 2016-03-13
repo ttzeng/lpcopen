@@ -70,13 +70,25 @@ void Board::setupSysTick()
 	SysTick_Config(SystemCoreClock / 1000);
 }
 
+void Board::setupMRT(uint32_t hz)
+{
+	/* Enable clock to MRT and reset the MRT peripheral */
+	LPC_SYSCON->SYSAHBCLKCTRL |= (1 << 10);
+	LPC_SYSCON->PRESETCTRL &= ~(1 << 7);
+	LPC_SYSCON->PRESETCTRL |=  (1 << 7);
+
+	LPC_MRT->Channel[0].CTRL   = MRT_REPEATED_MODE | MRT_INT_ENA;
+	LPC_MRT->Channel[0].INTVAL = (1 << 31) | hz;
+	NVIC_EnableIRQ(MRT_IRQn);
+}
+
 void Board::init()
 {
 	initSwitchMatrix();
 	initIOCON();
 	setupSysClock();
 	setupSysTick();
-	init_mrt(SystemCoreClock);
+	setupMRT(SystemCoreClock);
 	GPIOInit();
 }
 

@@ -28,9 +28,22 @@ void delay(unsigned long ms)
 	}
 }
 
+static volatile uint32_t mrt_counter = 0;
+
+void MRT_IRQHandler(void)
+{
+	if (LPC_MRT->Channel[0].STAT & MRT_STAT_IRQ_FLAG) {
+		LPC_MRT->Channel[0].STAT = MRT_STAT_IRQ_FLAG;
+		mrt_counter++;
+	}
+	if (LPC_MRT->Channel[2].STAT & MRT_STAT_IRQ_FLAG) {
+		LPC_MRT->Channel[2].STAT = MRT_STAT_IRQ_FLAG;
+		tone_handler();
+	}
+}
+
 unsigned long micros(void)
 {
-	extern volatile uint32_t mrt_counter;
 	return (mrt_counter * 1000000UL) + ((SystemCoreClock - LPC_MRT->Channel[0].TIMER) >> 4);
 }
 

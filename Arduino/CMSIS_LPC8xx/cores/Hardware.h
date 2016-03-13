@@ -10,6 +10,7 @@ protected:
 	virtual void initIOCON();
 	virtual void setupSysClock();
 	virtual void setupSysTick();
+	virtual void setupMRT(uint32_t hz);
 };
 
 class TargetBoard {
