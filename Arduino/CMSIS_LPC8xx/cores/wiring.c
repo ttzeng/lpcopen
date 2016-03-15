@@ -8,11 +8,6 @@ void yield(void) __attribute__ ((weak, alias("__empty")));
 
 static volatile uint32_t _ulTickCount;
 
-void SysTick_Handler(void)
-{
-	_ulTickCount++;
-}
-
 unsigned long millis(void)
 {
 	return _ulTickCount ;
@@ -39,6 +34,10 @@ void MRT_IRQHandler(void)
 	if (LPC_MRT->Channel[2].STAT & MRT_STAT_IRQ_FLAG) {
 		LPC_MRT->Channel[2].STAT = MRT_STAT_IRQ_FLAG;
 		tone_handler();
+	}
+	if (LPC_MRT->Channel[3].STAT & MRT_STAT_IRQ_FLAG) {
+		LPC_MRT->Channel[3].STAT = MRT_STAT_IRQ_FLAG;
+		_ulTickCount++;
 	}
 }
 

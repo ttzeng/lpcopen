@@ -66,8 +66,8 @@ void Board::setupSysClock()
 
 void Board::setupSysTick()
 {
-	SystemCoreClockUpdate();
-	SysTick_Config(SystemCoreClock / 1000);
+	LPC_MRT->Channel[3].CTRL   = MRT_REPEATED_MODE | MRT_INT_ENA;
+	LPC_MRT->Channel[3].INTVAL = (1 << 31) | (SystemCoreClock / 1000);
 }
 
 void Board::setupMRT(uint32_t hz)
@@ -87,8 +87,9 @@ void Board::init()
 	initSwitchMatrix();
 	initIOCON();
 	setupSysClock();
-	setupSysTick();
+	SystemCoreClockUpdate();
 	setupMRT(SystemCoreClock);
+	setupSysTick();
 	GPIOInit();
 }
 
