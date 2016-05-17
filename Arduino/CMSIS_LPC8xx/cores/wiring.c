@@ -52,7 +52,7 @@ void delayMicroseconds(unsigned int us)
 	while (micros() < t);
 }
 
-void delayNonoseconds(unsigned int ns)
+void delayNanoseconds(unsigned int ns)
 {
 	uint32_t ivalue;
 	LPC_MRT->Channel[1].CTRL   = MRT_ONE_SHOT_INT;
