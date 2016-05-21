@@ -104,14 +104,7 @@ void Gpio::unmapGpio(uint8_t pin)
 
 int Gpio::toGpioPortAndBit(uint8_t pin)
 {
-	int portAndBit;
-	try {
-		portAndBit = map.at(pin);
-	}
-	catch (std::out_of_range& oor) {
-		portAndBit = -1;
-	}
-	return portAndBit;
+	return map.count(pin)? map.at(pin) : -1;
 }
 
 void Board::init()
@@ -120,6 +113,8 @@ void Board::init()
 #if !defined(NO_BOARD_LIB)
 	// Read clock settings and update SystemCoreClock variable
 	SystemCoreClockUpdate();
+	// Turn off all peripheral clocks
+	LPC_SYSCTL->PCONP = 0;
 	// Set up and initialize all required blocks and
 	// functions related to the board hardware
 	Board_Init();
