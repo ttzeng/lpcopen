@@ -1,4 +1,3 @@
-#include <stdexcept>
 #include "Arduino.h"
 
 #ifdef __cplusplus
@@ -49,23 +48,34 @@ void delayMicroseconds(unsigned int us)
 
 void pinMode(uint8_t pin, uint8_t mode)
 {
-	int mux = gpioMapper.toGpioPortAndBit(pin);
-	if (mux >= 0)
-		Chip_GPIO_SetPinDIR(LPC_GPIO, IOGRP(mux), IONUM(mux), mode);
+	int prop = gpioMapper.getProp(pin);
+	if (prop >= 0 && !IOPWM(prop))
+		Chip_GPIO_SetPinDIR(LPC_GPIO, IOGRP(prop), IONUM(prop), mode);
 }
 
 void digitalWrite(uint8_t pin, uint8_t val)
 {
-	int mux = gpioMapper.toGpioPortAndBit(pin);
-	if (mux >= 0)
-		Chip_GPIO_SetPinState(LPC_GPIO, IOGRP(mux), IONUM(mux), val);
+	int prop = gpioMapper.getProp(pin);
+	if (prop >= 0) {
+		if (!IOPWM(prop))
+			Chip_GPIO_SetPinState(LPC_GPIO, IOGRP(prop), IONUM(prop), val);
+		else
+			gpioMapper.pwmSetDutyCycle(pin, val);
+	}
 }
 
 int digitalRead(uint8_t pin)
 {
-	int mux = gpioMapper.toGpioPortAndBit(pin);
-	if (mux >= 0)
-		return Chip_GPIO_GetPinState(LPC_GPIO, IOGRP(mux), IONUM(mux));
+	int prop = gpioMapper.getProp(pin);
+	if (prop >= 0 && !IOPWM(prop))
+		return Chip_GPIO_GetPinState(LPC_GPIO, IOGRP(prop), IONUM(prop));
+}
+
+void analogWrite(uint8_t pin, uint8_t val)
+{
+	int prop = gpioMapper.getProp(pin);
+	if (prop >= 0 && IOPWM(prop))
+		gpioMapper.pwmSetDutyCycle(pin, val / 255.f);
 }
 
 GPIO_CFG_T gpioCfgDefault[] = {
@@ -76,24 +86,41 @@ GPIO_CFG_T gpioCfgDefault[] = {
 		{ GPIO_CFG_UNASSIGNED }
 };
 
+volatile uint32_t* Gpio::pwm_mr[] = {
+		&LPC_PWM1->MR1, &LPC_PWM1->MR2, &LPC_PWM1->MR3,
+		&LPC_PWM1->MR4, &LPC_PWM1->MR5, &LPC_PWM1->MR6,
+};
+
 Gpio::Gpio(GPIO_CFG_T* cfg)
 {
-	for (; cfg->port != GPIO_CFG_UNASSIGNED; cfg++) {
+	for (; cfg && cfg->port != GPIO_CFG_UNASSIGNED; cfg++)
+		add(cfg);
+}
+
+void Gpio::add(GPIO_CFG_T* cfg, byte pwm_ch)
+{
+	if (cfg && cfg->port != GPIO_CFG_UNASSIGNED) {
 		Chip_IOCON_PinMuxSet(LPC_IOCON, cfg->port, cfg->bit, cfg->modefunc);
 		if (cfg->pin != GPIO_CFG_UNASSIGNED) {
-			gpioMapper.mapGpio(cfg->pin, IOMUX(cfg->port, cfg->bit));
+			gpioMapper.mapGpio(cfg->pin,
+					((uint32_t)pwm_ch << 12) | ((uint32_t)cfg->modefunc << 8) | IOMUX(cfg->port, cfg->bit));
+			if (0 < pwm_ch && pwm_ch <= N_PWM) {
+				*pwm_mr[pwm_ch - 1] = LPC_PWM1->MR0;
+				LPC_PWM1->LER |= (1 << pwm_ch);         // Update match register on next reset
+				LPC_PWM1->PCR |= (1 << (pwm_ch + 8));   // Enable PWM.1n output
+			}
 		}
 	}
 }
 
-void Gpio::mapGpio(uint8_t pin, uint8_t portAndBit)
+void Gpio::mapGpio(uint8_t pin, uint32_t prop)
 {
 	if (map.count(pin)) {
 		/* pin already mapped */
-		map.at(pin) = portAndBit;
+		map.at(pin) = prop;
 	} else {
 		/* insert a new mapping */
-		map.insert(std::pair<uint8_t, uint16_t>(pin, portAndBit));
+		map.insert(std::pair<uint8_t, uint32_t>(pin, prop));
 	}
 }
 
@@ -102,9 +129,19 @@ void Gpio::unmapGpio(uint8_t pin)
 	if (map.count(pin)) map.erase(pin);
 }
 
-int Gpio::toGpioPortAndBit(uint8_t pin)
+int Gpio::getProp(uint8_t pin)
 {
 	return map.count(pin)? map.at(pin) : -1;
+}
+
+void Gpio::pwmSetDutyCycle(uint8_t pin, float ratio)
+{
+	byte pwm_ch;
+	int prop = getProp(pin);
+	if (prop >= 0 && (pwm_ch = IOPWM(prop)) > 0 && pwm_ch <= N_PWM) {
+		*pwm_mr[pwm_ch - 1] = ratio * LPC_PWM1->MR0;
+		LPC_PWM1->LER |= (1 << pwm_ch);
+	}
 }
 
 void Board::init()
@@ -121,6 +158,7 @@ void Board::init()
 #endif
 #endif
 	setupTimer();
+	setupPWM();
 }
 
 void Board::setupTimer()
@@ -131,4 +169,20 @@ void Board::setupTimer()
 	Chip_RIT_EnableCTRL(LPC_RITIMER, RIT_CTRL_ENCLR);
 	Chip_RIT_TimerDebugDisable(LPC_RITIMER);
 	NVIC_EnableIRQ(RITIMER_IRQn);
+}
+
+void Board::setupPWM(uint32_t cycle_in_usec)
+{
+	// Power on the PWM peripheral
+	Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_PWM1);
+
+	LPC_PWM1->TCR = 2;              // reset the Timer Counter and the Prescale Counter
+	LPC_PWM1->IR  = 0x7ff;          // clear any pending interrupts
+
+	// Set prescale to 1 usec resolution (1000000Hz)
+	LPC_PWM1->PR  = Chip_Clock_GetPeripheralClockRate(SYSCTL_PCLK_PWM1) / 1000000 - 1;
+	LPC_PWM1->MR0 = cycle_in_usec;
+	LPC_PWM1->LER = 1;
+	LPC_PWM1->MCR = 2;       		// reset on MR0
+	LPC_PWM1->TCR = (1 << 3) | 1;   // enable PWM mode and counting
 }
