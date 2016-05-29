@@ -91,13 +91,13 @@ volatile uint32_t* Gpio::pwm_mr[] = {
 		&LPC_PWM1->MR4, &LPC_PWM1->MR5, &LPC_PWM1->MR6,
 };
 
-Gpio::Gpio(GPIO_CFG_T* cfg)
+Gpio::Gpio(const GPIO_CFG_T* cfg)
 {
 	for (; cfg && cfg->port != GPIO_CFG_UNASSIGNED; cfg++)
 		add(cfg);
 }
 
-void Gpio::add(GPIO_CFG_T* cfg, byte pwm_ch)
+void Gpio::add(const GPIO_CFG_T* cfg, byte pwm_ch)
 {
 	if (cfg && cfg->port != GPIO_CFG_UNASSIGNED) {
 		Chip_IOCON_PinMuxSet(LPC_IOCON, cfg->port, cfg->bit, cfg->modefunc);

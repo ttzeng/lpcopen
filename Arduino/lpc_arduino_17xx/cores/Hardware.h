@@ -21,8 +21,8 @@ extern GPIO_CFG_T gpioCfgDefault[];
 class Gpio {
 public:
 	static const int N_PWM = 6;
-	Gpio(GPIO_CFG_T* cfg = gpioCfgDefault);
-	void add(GPIO_CFG_T* cfg, byte pwm_ch = 0);
+	Gpio(const GPIO_CFG_T* cfg = gpioCfgDefault);
+	void add(const GPIO_CFG_T* cfg, byte pwm_ch = 0);
 	void mapGpio(uint8_t pin, uint32_t prop);
 	void unmapGpio(uint8_t pin);
 	int getProp(uint8_t pin);
