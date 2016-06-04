@@ -49,7 +49,7 @@ void delayMicroseconds(unsigned int us)
 void pinMode(uint8_t pin, uint8_t mode)
 {
 	int prop = gpioMapper.getProp(pin);
-	if (prop >= 0 && !IOPWM(prop))
+	if (prop >= 0 && !(prop & (GPIO_PWM | GPIO_ADC)))
 		Chip_GPIO_SetPinDIR(LPC_GPIO, IOGRP(prop), IONUM(prop), mode);
 }
 
@@ -57,7 +57,7 @@ void digitalWrite(uint8_t pin, uint8_t val)
 {
 	int prop = gpioMapper.getProp(pin);
 	if (prop >= 0) {
-		if (!IOPWM(prop))
+		if (!(prop & GPIO_PWM))
 			Chip_GPIO_SetPinState(LPC_GPIO, IOGRP(prop), IONUM(prop), val);
 		else
 			gpioMapper.pwmSetDutyCycle(pin, val);
@@ -67,15 +67,38 @@ void digitalWrite(uint8_t pin, uint8_t val)
 int digitalRead(uint8_t pin)
 {
 	int prop = gpioMapper.getProp(pin);
-	if (prop >= 0 && !IOPWM(prop))
+	if (prop >= 0 && !(prop & GPIO_PWM))
 		return Chip_GPIO_GetPinState(LPC_GPIO, IOGRP(prop), IONUM(prop));
 }
 
 void analogWrite(uint8_t pin, uint8_t val)
 {
 	int prop = gpioMapper.getProp(pin);
-	if (prop >= 0 && IOPWM(prop))
+	if (prop >= 0 && (prop & GPIO_PWM))
 		gpioMapper.pwmSetDutyCycle(pin, val / 255.f);
+}
+
+static ADC_CLOCK_SETUP_T ADCSetup;
+
+int analogRead(uint8_t pin)
+{
+	uint16_t data = 0;
+	int prop = gpioMapper.getProp(pin);
+	if (prop >= 0 && (prop & GPIO_ADC)) {
+		byte adc_ch = IOADC(prop);
+		bool burst = ADCSetup.burstMode;
+		Chip_ADC_SetBurstCmd(LPC_ADC, burst? ENABLE : DISABLE);
+		/* Start A/D conversion if not using burst mode */
+		if (!burst)
+			Chip_ADC_SetStartMode(LPC_ADC, ADC_START_NOW, ADC_TRIGGERMODE_RISING);
+		/* Waiting for A/D conversion complete */
+		while (Chip_ADC_ReadStatus(LPC_ADC, adc_ch, ADC_DR_DONE_STAT) != SET);
+		/* Read ADC value */
+		Chip_ADC_ReadValue(LPC_ADC, adc_ch, &data);
+		if (burst)
+			Chip_ADC_SetBurstCmd(LPC_ADC, DISABLE);
+	}
+	return map(data, 0, 0x0fff, 0, 1023);
 }
 
 GPIO_CFG_T gpioCfgDefault[] = {
@@ -91,24 +114,37 @@ volatile uint32_t* Gpio::pwm_mr[] = {
 		&LPC_PWM1->MR4, &LPC_PWM1->MR5, &LPC_PWM1->MR6,
 };
 
-Gpio::Gpio(GPIO_CFG_T* cfg)
+Gpio::Gpio(const GPIO_CFG_T* cfg)
 {
 	for (; cfg && cfg->port != GPIO_CFG_UNASSIGNED; cfg++)
 		add(cfg);
 }
 
-void Gpio::add(GPIO_CFG_T* cfg, byte pwm_ch)
+void Gpio::add(const GPIO_CFG_T* cfg, byte pwm_ch)
 {
 	if (cfg && cfg->port != GPIO_CFG_UNASSIGNED) {
 		Chip_IOCON_PinMuxSet(LPC_IOCON, cfg->port, cfg->bit, cfg->modefunc);
 		if (cfg->pin != GPIO_CFG_UNASSIGNED) {
 			gpioMapper.mapGpio(cfg->pin,
-					((uint32_t)pwm_ch << 12) | ((uint32_t)cfg->modefunc << 8) | IOMUX(cfg->port, cfg->bit));
+					GPIO_PWM | ((uint32_t)pwm_ch << 12) | ((uint32_t)cfg->modefunc << 8) | IOMUX(cfg->port, cfg->bit));
 			if (0 < pwm_ch && pwm_ch <= N_PWM) {
 				*pwm_mr[pwm_ch - 1] = LPC_PWM1->MR0;
 				LPC_PWM1->LER |= (1 << pwm_ch);         // Update match register on next reset
 				LPC_PWM1->PCR |= (1 << (pwm_ch + 8));   // Enable PWM.1n output
 			}
+		}
+	}
+}
+
+void Gpio::add(const GPIO_CFG_T* cfg, ADC_CHANNEL_T adc_ch)
+{
+	if (cfg && cfg->port != GPIO_CFG_UNASSIGNED) {
+		Chip_IOCON_PinMuxSet(LPC_IOCON, cfg->port, cfg->bit, cfg->modefunc);
+		if (cfg->pin != GPIO_CFG_UNASSIGNED) {
+			gpioMapper.mapGpio(cfg->pin,
+					GPIO_ADC | ((uint32_t)adc_ch << 15) | ((uint32_t)cfg->modefunc << 8) | IOMUX(cfg->port, cfg->bit));
+			if (ADC_CH0 <= adc_ch && adc_ch <= ADC_CH7)
+				Chip_ADC_EnableChannel(LPC_ADC, adc_ch, ENABLE);
 		}
 	}
 }
@@ -159,6 +195,7 @@ void Board::init()
 #endif
 	setupTimer();
 	setupPWM();
+	setupADC();
 }
 
 void Board::setupTimer()
@@ -185,4 +222,14 @@ void Board::setupPWM(uint32_t cycle_in_usec)
 	LPC_PWM1->LER = 1;
 	LPC_PWM1->MCR = 2;       		// reset on MR0
 	LPC_PWM1->TCR = (1 << 3) | 1;   // enable PWM mode and counting
+}
+
+void Board::setupADC(bool burst, uint32_t sampleRate)
+{
+	/* Initialize the ADC and load the ADC setup structure with default value */
+	Chip_ADC_Init(LPC_ADC, &ADCSetup);
+	/* Set the ADC Sample rate & burst mode */
+	ADCSetup.burstMode = burst;
+	Chip_ADC_SetSampleRate(LPC_ADC, &ADCSetup, sampleRate);
+	Chip_ADC_SetBurstCmd(LPC_ADC, burst? ENABLE : DISABLE);
 }
