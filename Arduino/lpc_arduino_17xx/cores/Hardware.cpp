@@ -125,13 +125,14 @@ void Gpio::add(const GPIO_CFG_T* cfg, byte pwm_ch)
 	if (cfg && cfg->port != GPIO_CFG_UNASSIGNED) {
 		Chip_IOCON_PinMuxSet(LPC_IOCON, cfg->port, cfg->bit, cfg->modefunc);
 		if (cfg->pin != GPIO_CFG_UNASSIGNED) {
-			gpioMapper.mapGpio(cfg->pin,
-					GPIO_PWM | ((uint32_t)pwm_ch << 12) | ((uint32_t)cfg->modefunc << 8) | IOMUX(cfg->port, cfg->bit));
+			uint32_t prop = ((uint32_t)pwm_ch << 12) | ((uint32_t)cfg->modefunc << 8) | IOMUX(cfg->port, cfg->bit);
 			if (0 < pwm_ch && pwm_ch <= N_PWM) {
 				*pwm_mr[pwm_ch - 1] = LPC_PWM1->MR0;
 				LPC_PWM1->LER |= (1 << pwm_ch);         // Update match register on next reset
 				LPC_PWM1->PCR |= (1 << (pwm_ch + 8));   // Enable PWM.1n output
+				prop |= GPIO_PWM;
 			}
+			gpioMapper.mapGpio(cfg->pin, prop);
 		}
 	}
 }
@@ -141,10 +142,12 @@ void Gpio::add(const GPIO_CFG_T* cfg, ADC_CHANNEL_T adc_ch)
 	if (cfg && cfg->port != GPIO_CFG_UNASSIGNED) {
 		Chip_IOCON_PinMuxSet(LPC_IOCON, cfg->port, cfg->bit, cfg->modefunc);
 		if (cfg->pin != GPIO_CFG_UNASSIGNED) {
-			gpioMapper.mapGpio(cfg->pin,
-					GPIO_ADC | ((uint32_t)adc_ch << 15) | ((uint32_t)cfg->modefunc << 8) | IOMUX(cfg->port, cfg->bit));
-			if (ADC_CH0 <= adc_ch && adc_ch <= ADC_CH7)
+			uint32_t prop = ((uint32_t)adc_ch << 15) | ((uint32_t)cfg->modefunc << 8) | IOMUX(cfg->port, cfg->bit);
+			if (ADC_CH0 <= adc_ch && adc_ch <= ADC_CH7) {
 				Chip_ADC_EnableChannel(LPC_ADC, adc_ch, ENABLE);
+				prop |= GPIO_ADC;
+			}
+			gpioMapper.mapGpio(cfg->pin, prop);
 		}
 	}
 }
