@@ -9,12 +9,17 @@ static void __empty() {
 void init(void) __attribute__ ((weak, alias("__empty")));
 void yield(void) __attribute__ ((weak, alias("__empty")));
 
+static LPC_TIMER_T* timer_csr[] = { LPC_TIMER0, LPC_TIMER1, LPC_TIMER2, LPC_TIMER3 };
+static volatile int toneOnPin = -1;
+static volatile uint32_t toneOnInMsec;
 static volatile uint32_t _ulMilliSecond = 0;
 
 void RIT_IRQHandler(void)
 {
 	Chip_RIT_ClearInt(LPC_RITIMER);
 	_ulMilliSecond++;
+	if (toneOnPin >= 0 && --toneOnInMsec == 0)
+		noTone(toneOnPin);
 }
 
 unsigned long millis(void)
@@ -49,7 +54,7 @@ void delayMicroseconds(unsigned int us)
 void pinMode(uint8_t pin, uint8_t mode)
 {
 	int prop = gpioMapper.getProp(pin);
-	if (prop >= 0 && !(prop & (GPIO_PWM | GPIO_ADC)))
+	if (prop >= 0 && IOFUNC(prop) == IOCON_FUNC0)
 		Chip_GPIO_SetPinDIR(LPC_GPIO, IOGRP(prop), IONUM(prop), mode);
 }
 
@@ -101,11 +106,40 @@ int analogRead(uint8_t pin)
 	return map(data, 0, 0x0fff, 0, 1023);
 }
 
+void tone(uint8_t pin, unsigned int hz, unsigned long duration_in_msec)
+{
+	int prop = (toneOnPin < 0 || pin == toneOnPin)? gpioMapper.getProp(pin) : -1;
+	if (prop >= 0 && (prop & GPIO_CLKOUT)) {
+		LPC_TIMER_T* pTMR = timer_csr[IOTIMER(prop)];
+		byte match = IOMATCH(prop);
+		Chip_TIMER_Reset(pTMR);
+		if (hz) {
+			Chip_TIMER_SetMatch(pTMR, match, ((Chip_Clock_GetSystemClockRate() >> 3) / hz));
+			Chip_TIMER_ResetOnMatchEnable(pTMR, match);
+		}
+		Chip_TIMER_Enable(pTMR);
+		toneOnPin = pin, toneOnInMsec = duration_in_msec;
+	}
+}
+
+void noTone(uint8_t pin)
+{
+	int prop = (pin == toneOnPin)? gpioMapper.getProp(pin) : -1;
+	if (prop >= 0 && (prop & GPIO_CLKOUT)) {
+		LPC_TIMER_T* pTMR = timer_csr[IOTIMER(prop)];
+		Chip_TIMER_Disable(pTMR);
+		toneOnPin = -1;
+	}
+}
+
 GPIO_CFG_T gpioCfgDefault[] = {
 		{ 0,  2, IOCON_MODE_INACT | IOCON_FUNC1, GPIO_CFG_UNASSIGNED }, /* TXD0 */
 		{ 0,  3, IOCON_MODE_INACT | IOCON_FUNC1, GPIO_CFG_UNASSIGNED }, /* RXD0 */
 		{ 2,  0, IOCON_MODE_INACT | IOCON_FUNC0, 13 }, /* LED0 */
 		{ 2, 10, IOCON_MODE_INACT | IOCON_FUNC0,  2 }, /* INT Button */
+		{ 0, 15, IOCON_MODE_PULLDOWN | IOCON_FUNC3, GPIO_CFG_UNASSIGNED }, /* SCK */
+		{ 0, 17, IOCON_MODE_INACT | IOCON_FUNC3, GPIO_CFG_UNASSIGNED }, /* MISO */
+		{ 0, 18, IOCON_MODE_INACT | IOCON_FUNC3, GPIO_CFG_UNASSIGNED }, /* MOSI */
 		{ GPIO_CFG_UNASSIGNED }
 };
 
@@ -125,13 +159,14 @@ void Gpio::add(const GPIO_CFG_T* cfg, byte pwm_ch)
 	if (cfg && cfg->port != GPIO_CFG_UNASSIGNED) {
 		Chip_IOCON_PinMuxSet(LPC_IOCON, cfg->port, cfg->bit, cfg->modefunc);
 		if (cfg->pin != GPIO_CFG_UNASSIGNED) {
-			gpioMapper.mapGpio(cfg->pin,
-					GPIO_PWM | ((uint32_t)pwm_ch << 12) | ((uint32_t)cfg->modefunc << 8) | IOMUX(cfg->port, cfg->bit));
+			uint32_t prop = ((uint32_t)pwm_ch << 12) | ((uint32_t)cfg->modefunc << 8) | IOMUX(cfg->port, cfg->bit);
 			if (0 < pwm_ch && pwm_ch <= N_PWM) {
 				*pwm_mr[pwm_ch - 1] = LPC_PWM1->MR0;
 				LPC_PWM1->LER |= (1 << pwm_ch);         // Update match register on next reset
 				LPC_PWM1->PCR |= (1 << (pwm_ch + 8));   // Enable PWM.1n output
+				prop |= GPIO_PWM;
 			}
+			gpioMapper.mapGpio(cfg->pin, prop);
 		}
 	}
 }
@@ -141,10 +176,43 @@ void Gpio::add(const GPIO_CFG_T* cfg, ADC_CHANNEL_T adc_ch)
 	if (cfg && cfg->port != GPIO_CFG_UNASSIGNED) {
 		Chip_IOCON_PinMuxSet(LPC_IOCON, cfg->port, cfg->bit, cfg->modefunc);
 		if (cfg->pin != GPIO_CFG_UNASSIGNED) {
-			gpioMapper.mapGpio(cfg->pin,
-					GPIO_ADC | ((uint32_t)adc_ch << 15) | ((uint32_t)cfg->modefunc << 8) | IOMUX(cfg->port, cfg->bit));
-			if (ADC_CH0 <= adc_ch && adc_ch <= ADC_CH7)
+			uint32_t prop = ((uint32_t)adc_ch << 15) | ((uint32_t)cfg->modefunc << 8) | IOMUX(cfg->port, cfg->bit);
+			if (ADC_CH0 <= adc_ch && adc_ch <= ADC_CH7) {
 				Chip_ADC_EnableChannel(LPC_ADC, adc_ch, ENABLE);
+				prop |= GPIO_ADC;
+			}
+			gpioMapper.mapGpio(cfg->pin, prop);
+		}
+	}
+}
+
+void Gpio::addClockOut(const GPIO_CFG_T* cfg, byte timer, byte match, uint32_t hz)
+{
+	if (cfg && cfg->port != GPIO_CFG_UNASSIGNED) {
+		Chip_IOCON_PinMuxSet(LPC_IOCON, cfg->port, cfg->bit, cfg->modefunc);
+
+		timer &= 3, match &= 3;
+		LPC_TIMER_T* pTMR = timer_csr[timer];
+		/* Enable clock to the timer */
+		Chip_TIMER_Init(pTMR);
+		/* Reset the Timer Counter and the Prescale Counter on next PCLK */
+		Chip_TIMER_Reset(pTMR);
+		/* Sets the prescaler value */
+		Chip_TIMER_PrescaleSet(pTMR, 0);
+		if (hz) {
+			/* Sets a timer match value */
+			Chip_TIMER_SetMatch(pTMR, match, ((Chip_Clock_GetSystemClockRate() >> 3) / hz));
+			/* Reset the timer counter on match */
+			Chip_TIMER_ResetOnMatchEnable(pTMR, match);
+		}
+		/* Start counting */
+		Chip_TIMER_Enable(pTMR);
+
+		if (cfg->pin != GPIO_CFG_UNASSIGNED) {
+			uint32_t prop = GPIO_CLKOUT | ((uint32_t)((timer << 2) | match) << 18) |
+					((uint32_t)cfg->modefunc << 8) | IOMUX(cfg->port, cfg->bit);
+			gpioMapper.mapGpio(cfg->pin, prop);
+			Chip_TIMER_ExtMatchControlSet(pTMR, 0, TIMER_EXTMATCH_TOGGLE, match);
 		}
 	}
 }

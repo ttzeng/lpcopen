@@ -130,6 +130,9 @@ void loop(void);
 #include "Hardware.h"
 #include "Uart.h"
 
+void tone(uint8_t pin, unsigned int frequency, unsigned long duration_in_msec = 0);
+void noTone(uint8_t pin);
+
 // WMath prototypes
 long random(long);
 long random(long, long);
