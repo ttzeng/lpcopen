@@ -245,6 +245,7 @@ void Gpio::pwmSetDutyCycle(uint8_t pin, float ratio)
 	if (prop >= 0 && (pwm_ch = IOPWM(prop)) > 0 && pwm_ch <= N_PWM) {
 		*pwm_mr[pwm_ch - 1] = ratio * LPC_PWM1->MR0;
 		LPC_PWM1->LER |= (1 << pwm_ch);
+		while (LPC_PWM1->LER & (1 << pwm_ch));
 	}
 }
 
