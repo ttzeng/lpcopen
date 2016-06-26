@@ -6,6 +6,7 @@
 #include "task.h"
 #include "CommandLine.h"
 #include "Motor2WD.h"
+#include "Compass-GY26.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,6 +34,7 @@ static GPIO_CFG_T gpioScl1 = { 0, 20, IOCON_MODE_INACT | IOCON_FUNC3, 21 };
 TwoWire Wire(I2C1, &gpioSda1, &gpioScl1);
 
 Motor2WD Motor2;
+CompassGY26 GY26;
 
 static portBASE_TYPE xI2cProbe(char* pcOutBuf, size_t xOutBufLen, const char* pcCmdStr)
 {
@@ -100,7 +102,7 @@ int main(void)
 
 	/* Console thread */
 	xTaskCreate(vConsole, (signed char*) "Console",
-				256, NULL, (tskIDLE_PRIORITY + 0UL),
+				512, NULL, (tskIDLE_PRIORITY + 0UL),
 				(xTaskHandle *) NULL);
 
 	/* Start the scheduler */
