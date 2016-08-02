@@ -10,10 +10,12 @@ typedef enum {
 
 class Motor2WD {
 public:
+	const uint8_t pinDirL = 4;
+	const uint8_t pinPwmL = 5;
+	const uint8_t pinPwmR = 6;
+	const uint8_t pinDirR = 7;
 	Motor2WD();
 	void setSpeed(MotorChannel channel, float ratio);
 };
-
-extern Motor2WD Motor2;
 
 #endif

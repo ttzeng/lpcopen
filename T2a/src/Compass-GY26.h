@@ -15,6 +15,4 @@ public:
 	float getHeading();
 };
 
-extern CompassGY26 GY26;
-
 #endif

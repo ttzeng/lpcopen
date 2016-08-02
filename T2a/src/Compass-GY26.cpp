@@ -12,9 +12,11 @@ extern "C" {
 }
 #endif
 
+static CompassGY26 *gy26;
+
 static portBASE_TYPE xGetHeading(char* pcOutBuf, size_t xOutBufLen, const char* pcCmdStr)
 {
-	sprintf((char*)pcOutBuf, "Heading: %.1f\r\n", GY26.getHeading());
+	sprintf((char*)pcOutBuf, "Heading: %.1f\r\n", gy26->getHeading());
 	return pdFALSE;
 }
 
@@ -27,6 +29,7 @@ static const CLI_Command_Definition_t xCmdGetHeading = {
 
 CompassGY26::CompassGY26()
 {
+	gy26 = this;
 	/* Register CLI commands */
 	FreeRTOS_CLIRegisterCommand(&xCmdGetHeading);
 }

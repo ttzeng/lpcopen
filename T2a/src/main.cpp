@@ -33,9 +33,6 @@ static GPIO_CFG_T gpioSda1 = { 0, 19, IOCON_MODE_INACT | IOCON_FUNC3, 20 };
 static GPIO_CFG_T gpioScl1 = { 0, 20, IOCON_MODE_INACT | IOCON_FUNC3, 21 };
 TwoWire Wire(I2C1, &gpioSda1, &gpioScl1);
 
-Motor2WD Motor2;
-CompassGY26 GY26;
-
 static portBASE_TYPE xI2cProbe(char* pcOutBuf, size_t xOutBufLen, const char* pcCmdStr)
 {
 	BaseType_t xMore = pdTRUE;
@@ -96,6 +93,10 @@ int main(void)
 {
 	/* Initiate the Wire library and join the I2C bus as master */
 	Wire.begin();
+
+	/* Initiate resources */
+	new Motor2WD;
+	new CompassGY26;
 
 	/* Register CLI commands */
 	FreeRTOS_CLIRegisterCommand(&xCmdI2cProbe);
