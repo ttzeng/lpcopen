@@ -2,6 +2,7 @@
 #include <cr_section_macros.h>
 #include "Arduino.h"
 #include "Wire.h"
+#include "TonePlayer.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "CommandLine.h"
@@ -89,6 +90,9 @@ static void vConsole(void *pvParameters)
 	}
 }
 
+/* change melody by assigning the player object to a new RTTTL string */
+TonePlayer* tonePlayer;
+
 int main(void)
 {
 	/* Initiate the Wire library and join the I2C bus as master */
@@ -97,6 +101,8 @@ int main(void)
 	/* Initiate resources */
 	new Motor2WD;
 	new CompassGY26;
+	const char* tones = "pacman:d=4,o=4,b=112:32b,32p,32b5,32p,32f#5,32p,32d#5,32p,32b5,32f#5,16p,16d#5,16p,32c5,32p,32c6,32p,32g5,32p,32e5,32p,32c6,32g5,16p,16e5,16p,32b,32p,32b5,32p,32f#5,32p,32d#5,32p,32b5,32f#5,16p,16d#5,16p,32d#5,32e5,32f5,32p,32f5,32f#5,32g5,32p,32g5,32g#5,32a5,32p,32b5.";
+	tonePlayer = new TonePlayer(tones);
 
 	/* Register CLI commands */
 	FreeRTOS_CLIRegisterCommand(&xCmdI2cProbe);
